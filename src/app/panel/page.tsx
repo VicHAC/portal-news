@@ -1,33 +1,49 @@
 import { auth } from '@/auth';
+import prisma from '@/lib/prisma';
+import { Newspaper, CheckCircle } from 'lucide-react';
 
 export default async function PanelPage() {
     const session = await auth();
+
+    // 1. Obtener datos REALES de la base de datos
+    // Promise.all permite hacer las dos consultas al mismo tiempo para que sea más rápido
+    const [totalNoticias, noticiasPublicadas] = await Promise.all([
+        prisma.article.count(), // Total de noticias creadas
+        prisma.article.count({ where: { published: true } }), // Solo las publicadas
+    ]);
 
     return (
         <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-6">Panel de Control</h1>
 
-            <div className="bg-white p-6 rounded-lg shadow border">
+            <div className="bg-white p-6 rounded-lg shadow border mb-8">
                 <h2 className="text-xl font-semibold mb-2">Bienvenido, {session?.user?.name}</h2>
                 <p className="text-gray-600">
                     Has ingresado como <span className="font-bold uppercase text-blue-600">{session?.user?.role}</span>.
                 </p>
-                <p className="mt-4 text-sm text-gray-500">
-                    Desde aquí podrás gestionar las noticias, subir imágenes y controlar el contenido del portal.
-                    Usa el menú de la izquierda para navegar.
-                </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-                {/* Estadísticas rápidas (Fake data por ahora) */}
-                <div className="bg-blue-50 p-6 rounded-lg border border-blue-100">
-                    <h3 className="text-blue-800 font-bold text-lg">Noticias Publicadas</h3>
-                    <p className="text-4xl font-bold text-blue-600 mt-2">0</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Contador Total */}
+                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500 flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-500 font-medium mb-1">Total Noticias</p>
+                        <p className="text-4xl font-bold text-gray-900">{totalNoticias}</p>
+                    </div>
+                    <div className="bg-blue-100 p-3 rounded-full text-blue-600">
+                        <Newspaper size={32} />
+                    </div>
                 </div>
 
-                <div className="bg-green-50 p-6 rounded-lg border border-green-100">
-                    <h3 className="text-green-800 font-bold text-lg">Secciones Activas</h3>
-                    <p className="text-4xl font-bold text-green-600 mt-2">4</p>
+                {/* Contador Publicadas */}
+                <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500 flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-500 font-medium mb-1">Publicadas en la web</p>
+                        <p className="text-4xl font-bold text-gray-900">{noticiasPublicadas}</p>
+                    </div>
+                    <div className="bg-green-100 p-3 rounded-full text-green-600">
+                        <CheckCircle size={32} />
+                    </div>
                 </div>
             </div>
         </div>
