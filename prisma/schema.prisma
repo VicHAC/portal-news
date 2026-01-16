@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique // Para login: "Administrador" o "Editor"
+  password  String   // Se guardará encriptada
+  role      Role     @default(EDITOR)
+  createdAt DateTime @default(now())
+}
+
+model Article {
+  id          String   @id @default(cuid())
+  slug        String   @unique // Para la url: /noticia/mi-titulo-genial
+  title       String
+  summary     String?  @db.Text // Resumen manual o autogenerado
+  content     String   @db.Text // Contenido completo
+  
+  // Imágenes
+  mainImage   String?  // URL de Vercel Blob
+  otherImages String[] // Array de URLs adicionales
+  
+  // Metadatos
+  author      String?  @default("Redacción")
+  columnName  String?  // Opcional, para columnas de opinión
+  section     String   // Ej: "politica", "deportes"
+  published   Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Índice para buscar rápido por sección
+  @@index([section])
+}
