@@ -24,24 +24,54 @@ model User {
 
 model Article {
   id          String   @id @default(cuid())
-  slug        String   @unique // Para la url: /noticia/mi-titulo-genial
+  slug        String   @unique
   title       String
-  summary     String?  @db.Text // Resumen manual o autogenerado
-  content     String   @db.Text // Contenido completo
+  summary     String?  @db.Text
+  content     String   @db.Text
   
-  // Imágenes
-  mainImage   String?  // URL de Vercel Blob
-  otherImages String[] // Array de URLs adicionales
+  // IMÁGENES
+  mainImage   String?
+  imageAuthor String?  @default("Redacción") // <--- NUEVO: Autor de la foto principal
   
-  // Metadatos
+  collage     String[] // <--- NUEVO: Array de URLs para el collage
+  
   author      String?  @default("Redacción")
-  columnName  String?  // Opcional, para columnas de opinión
-  section     String   // Ej: "politica", "deportes"
+  columnName  String?
+  section     String
   published   Boolean  @default(false)
-  
+  isFeatured  Boolean  @default(false) 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  // Índice para buscar rápido por sección
+  
   @@index([section])
+}
+
+model SiteConfig {
+  id               String @id @default("global")
+  homeNewsCount    Int    @default(10)
+  maxCollageImages Int    @default(6) // <--- NUEVO: Límite configurado por Admin
+}
+
+model Section {
+  id    String @id @default(cuid())
+  name  String
+  slug  String @unique
+}
+
+model Author {
+  id    String  @id @default(cuid())
+  name  String
+  image String? // Foto del autor
+  bio   String?
+}
+
+model Column {
+  id    String @id @default(cuid())
+  name  String
+}
+
+// NUEVO MODELO
+model ImageAuthor {
+  id    String @id @default(cuid())
+  name  String
 }
