@@ -79,51 +79,68 @@ export async function createArticle(formData: FormData) {
     return { success: true };
 }
 
-// --- ACCIÓN PARA BORRAR NOTICIA (SOLO ADMIN) ---
+// --- FUNCIÓN BORRAR (PROTEGIDA SOLO PARA ADMIN) ---
 export async function deleteArticle(id: string) {
     const session = await auth();
 
-    // 1. Verificar autenticación básica
-    if (!session?.user) {
-        throw new Error('No autorizado');
-    }
+    // 1. Verificar sesión
+    if (!session?.user) throw new Error('No autorizado');
 
-    // 2. VERIFICAR ROL ADMIN (Seguridad Crítica)
+    // 2. Verificar ROL (Solo ADMIN puede borrar)
+    // Asegúrate de que tu AuthProvider devuelva el campo 'role' en la sesión
     if (session.user.role !== 'ADMIN') {
-        throw new Error('Permisos insuficientes. Solo administradores pueden borrar.');
+        throw new Error('No tienes permisos para eliminar noticias.');
     }
 
-    // 3. Borrar de la Base de Datos
-    await prisma.article.delete({
-        where: { id },
-    });
+    const article = await prisma.article.findUnique({ where: { id } });
+    if (!article) throw new Error('Noticia no encontrada');
 
-    // 4. Actualizar vistas
+    // (Opcional) Aquí podrías borrar las imágenes del blob si lo deseas
+
+    await prisma.article.delete({ where: { id } });
+
     revalidatePath('/');
+    revalidatePath('/panel');
     revalidatePath('/panel/noticias');
 }
 
-// ... (código existente create/delete)
-
-// --- TOGGLE DESTACADA ---
-export async function toggleFeatured(articleId: string) {
+// --- FUNCIÓN DESTACAR (LÓGICA DE ÚNICO DESTACADO) ---
+export async function toggleFeatured(id: string) {
     const session = await auth();
     if (!session?.user) throw new Error('No autorizado');
 
-    // 1. Primero, quitamos el destacado a TODAS las noticias
-    // (Asumimos que solo quieres 1 noticia principal gigante)
-    await prisma.article.updateMany({
-        where: { isFeatured: true },
-        data: { isFeatured: false }
-    });
+    const article = await prisma.article.findUnique({ where: { id } });
+    if (!article) throw new Error('Noticia no encontrada');
 
-    // 2. Destacamos la seleccionada
-    await prisma.article.update({
-        where: { id: articleId },
-        data: { isFeatured: true }
-    });
+    const newValue = !article.isFeatured;
 
+    if (newValue === true) {
+        // CASO A: Queremos ACTIVAR esta noticia como destacada.
+        // Usamos una transacción para asegurarnos de que las demás se apaguen primero.
+        await prisma.$transaction([
+            // 1. Quitar destacado a TODAS las noticias
+            prisma.article.updateMany({
+                where: { isFeatured: true },
+                data: { isFeatured: false }
+            }),
+            // 2. Poner destacado a ESTA noticia
+            prisma.article.update({
+                where: { id },
+                data: { isFeatured: true }
+            })
+        ]);
+    } else {
+        // CASO B: Queremos DESACTIVAR (quitar la estrella).
+        // Simplemente la actualizamos.
+        await prisma.article.update({
+            where: { id },
+            data: { isFeatured: false }
+        });
+    }
+
+    // Revalidar para que el cambio se vea al instante en el Home y Panel
     revalidatePath('/');
+    revalidatePath('/panel');
     revalidatePath('/panel/noticias');
 }
 

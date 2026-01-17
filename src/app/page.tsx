@@ -3,26 +3,37 @@ import NewsCard from '@/components/NewsCard';
 import Image from 'next/image';
 import Link from 'next/link';
 
+// Forzamos la regeneración de la página cada 60 segundos (ISR)
 export const revalidate = 60;
 
 export default async function HomePage() {
+  // 1. Configuración Global
   const config = await prisma.siteConfig.findUnique({ where: { id: 'global' } });
   const takeCount = config?.homeNewsCount || 10;
 
+  // 2. BUSCAR NOTICIA DESTACADA (La corrección está aquí)
   const featuredArticle = await prisma.article.findFirst({
-    where: { published: true, isFeatured: true },
+    where: {
+      published: true,
+      isFeatured: true
+    },
+    // IMPORTANTE: Ordenamos por fecha descendente. 
+    // Así, si tienes varias marcadas, siempre muestra la más nueva.
+    orderBy: { publishedAt: 'desc' },
   });
 
+  // 3. BUSCAR NOTICIAS RECIENTES
   const recentArticles = await prisma.article.findMany({
     where: {
       published: true,
+      // Excluimos la destacada para que no salga repetida abajo
       id: { not: featuredArticle?.id }
     },
     orderBy: { publishedAt: 'desc' },
     take: takeCount,
   });
 
-  // Helper Autores
+  // --- LÓGICA DE FOTOS DE AUTORES Y COLORES (OPTIMIZADA) ---
   const authorNames = new Set<string>();
   if (featuredArticle?.author) authorNames.add(featuredArticle.author);
   recentArticles.forEach(a => { if (a.author) authorNames.add(a.author); });
@@ -34,24 +45,35 @@ export default async function HomePage() {
 
   const authorImageMap = new Map<string, string | null>();
   authors.forEach(author => authorImageMap.set(author.name, author.image));
-  const getAuthorImage = (articleAuthor: string | null) => articleAuthor ? authorImageMap.get(articleAuthor) : null;
 
-  // Helper Colores
+  const getAuthorImage = (articleAuthor: string | null) => {
+    return articleAuthor ? authorImageMap.get(articleAuthor) : null;
+  };
+
   const sections = await prisma.section.findMany();
   const sectionColorMap = new Map<string, string>();
   sections.forEach(sec => sectionColorMap.set(sec.slug, sec.color));
-  const getSectionColor = (sectionSlug: string) => sectionColorMap.get(sectionSlug) || '#2563eb';
 
+  const getSectionColor = (sectionSlug: string) => {
+    return sectionColorMap.get(sectionSlug) || '#2563eb';
+  };
+
+  // --- RENDERIZADO ---
   return (
     <main className="min-h-screen bg-gray-50 pb-12">
       <div className="container mx-auto px-4 py-8">
 
-        {/* DESTACADA */}
+        {/* BLOQUE DESTACADA */}
         {featuredArticle && (
           <div className="mb-12">
             <Link href={`/noticia/${featuredArticle.slug}`} className="group relative block rounded-2xl overflow-hidden shadow-xl h-[400px] md:h-[500px]">
               {featuredArticle.mainImage ? (
-                <Image src={featuredArticle.mainImage} alt={featuredArticle.title} fill className="object-cover transition duration-700 group-hover:scale-105" />
+                <Image
+                  src={featuredArticle.mainImage}
+                  alt={featuredArticle.title}
+                  fill
+                  className="object-cover transition duration-700 group-hover:scale-105"
+                />
               ) : (
                 <div className="w-full h-full bg-slate-900" />
               )}
@@ -61,11 +83,12 @@ export default async function HomePage() {
                 <span className="inline-block bg-red-600 text-white text-xs font-bold px-3 py-1 rounded mb-3 uppercase tracking-wider shadow-sm">
                   {featuredArticle.section}
                 </span>
+
                 <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight mb-4 group-hover:text-blue-200 transition drop-shadow-sm">
                   {featuredArticle.title}
                 </h1>
 
-                {/* AUTOR EN DESTACADA (CONDICIONAL) */}
+                {/* Autor en Destacada (Si existe) */}
                 {featuredArticle.author && (
                   <div className="flex items-center gap-3 text-white/90 text-sm font-medium mb-3">
                     {getAuthorImage(featuredArticle.author) && (
@@ -85,9 +108,11 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* LISTA */}
+        {/* BLOQUE LISTA RECIENTE */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-4">Recientes</h2>
+          <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-4">
+            Recientes
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

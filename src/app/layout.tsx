@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import prisma from "@/lib/prisma";
+import NavbarVisibility from "@/components/NavbarVisibility";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -11,22 +12,18 @@ export const metadata: Metadata = {
   description: "Noticias al día",
 };
 
-export default async function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  // CAMBIO CLAVE: Ordenamos por 'order' ascendente (0, 1, 2...)
-  const sections = await prisma.section.findMany({
-    orderBy: { order: 'asc' }
-  });
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={inter.className}>
-        {/* Pasamos las secciones ordenadas al componente Navbar */}
-        <Navbar sections={sections} />
+      <body className="bg-gray-50 min-h-screen flex flex-col">
+
+        {/* ENVUELVE EL NAVBAR AQUÍ */}
+        <NavbarVisibility>
+          <Navbar />
+        </NavbarVisibility>
+
         {children}
+
       </body>
     </html>
   );

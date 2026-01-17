@@ -1,97 +1,69 @@
-'use client';
-
-import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
+import Image from 'next/image';
+import prisma from '@/lib/prisma';
+import { Menu } from 'lucide-react';
+import NavSearch from './NavSearch';
 
-interface NavbarProps {
-    sections: { id: string; name: string; slug: string }[];
-}
+export default async function Navbar() {
+    // 1. Obtener Configuración y Secciones
+    const config = await prisma.siteConfig.findUnique({ where: { id: 'global' } });
+    const sections = await prisma.section.findMany({ orderBy: { order: 'asc' } });
 
-export default function Navbar({ sections }: NavbarProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const pathname = usePathname();
-
-    // Si estamos en el panel de administración, no mostramos este navbar
-    if (pathname && pathname.startsWith('/panel')) {
-        return null;
-    }
+    // Estilos comunes para los enlaces (para no repetir tanto código)
+    const linkStyles = "px-3 py-2 text-sm font-bold text-gray-600 hover:text-blue-600 uppercase tracking-wide transition-colors rounded-md hover:bg-gray-50";
 
     return (
-        <nav className="bg-white border-b sticky top-0 z-50 shadow-sm">
-            <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+            <div className="container mx-auto px-4">
+                <div className="flex items-center justify-between h-16">
 
-                {/* Logo */}
-                <Link href="/" className="font-extrabold text-2xl tracking-tighter text-gray-900 z-50">
-                    MiPortal<span className="text-blue-600">.</span>
-                </Link>
-
-                {/* --- MENÚ DESKTOP --- */}
-                <div className="hidden md:flex gap-6">
-
-                    {/* 1. Botón INICIO (Fijo) */}
-                    <Link
-                        href="/"
-                        className="text-sm font-bold text-gray-900 hover:text-blue-600 px-3 py-2 rounded transition"
-                    >
-                        Inicio
+                    {/* A. LOGO */}
+                    <Link href="/" className="flex-shrink-0 flex items-center gap-2 transition-opacity hover:opacity-80">
+                        {config?.logoUrl ? (
+                            <div className="relative w-32 h-8 md:w-48 md:h-10">
+                                <Image
+                                    src={config.logoUrl}
+                                    alt="Logo"
+                                    fill
+                                    className="object-contain object-left"
+                                    priority
+                                    sizes="(max-width: 768px) 128px, 192px"
+                                />
+                            </div>
+                        ) : (
+                            <span className="text-2xl font-black text-slate-900 tracking-tighter">
+                                Mi<span className="text-blue-600">Portal</span>
+                            </span>
+                        )}
                     </Link>
 
-                    {/* 2. Secciones Dinámicas (Ya vienen ordenadas) */}
-                    {sections.map((sec) => (
-                        <Link
-                            key={sec.id}
-                            href={`/seccion/${sec.slug}`}
-                            className="text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 px-3 py-2 rounded transition capitalize"
-                        >
-                            {sec.name}
+                    {/* B. NAVEGACIÓN (Escritorio) */}
+                    <nav className="hidden md:flex items-center gap-1">
+
+                        {/* 1. ENLACE DE INICIO (AGREGADO) */}
+                        <Link href="/" className={linkStyles}>
+                            Inicio
                         </Link>
-                    ))}
-                </div>
 
-                {/* Botones Derecha (Admin y Móvil) */}
-                <div className="flex items-center gap-4 z-50">
-                    <Link href="/panel" className="hidden sm:block text-sm font-medium bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 transition">
-                        Admin
-                    </Link>
+                        {/* 2. SECCIONES DINÁMICAS */}
+                        {sections.map((section) => (
+                            <Link key={section.id} href={`/seccion/${section.slug}`} className={linkStyles}>
+                                {section.name}
+                            </Link>
+                        ))}
+                    </nav>
 
-                    <button onClick={() => setIsOpen(!isOpen)} className="md:hidden text-gray-600 p-1 rounded hover:bg-gray-100 focus:outline-none">
-                        {isOpen ? <X size={28} /> : <Menu size={28} />}
-                    </button>
+                    {/* C. BOTONES */}
+                    <div className="flex items-center gap-2 md:gap-4">
+                        <NavSearch />
+
+                        <button className="md:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                            <Menu size={24} />
+                        </button>
+                    </div>
+
                 </div>
             </div>
-
-            {/* --- MENÚ MÓVIL --- */}
-            {isOpen && (
-                <div className="md:hidden absolute top-16 left-0 w-full bg-white border-b shadow-lg flex flex-col p-4 animate-in slide-in-from-top-5 h-screen overflow-y-auto pb-20">
-
-                    {/* 1. Inicio Móvil */}
-                    <Link
-                        href="/"
-                        onClick={() => setIsOpen(false)}
-                        className="text-lg font-bold text-gray-900 py-3 border-b border-gray-100"
-                    >
-                        Inicio
-                    </Link>
-
-                    {/* 2. Secciones Móvil */}
-                    {sections.map((sec) => (
-                        <Link
-                            key={sec.id}
-                            href={`/seccion/${sec.slug}`}
-                            onClick={() => setIsOpen(false)}
-                            className="text-lg font-medium text-gray-700 py-3 border-b border-gray-100 last:border-0 hover:text-blue-600 capitalize"
-                        >
-                            {sec.name}
-                        </Link>
-                    ))}
-
-                    <Link href="/panel" onClick={() => setIsOpen(false)} className="text-lg font-bold text-white bg-slate-900 py-3 px-4 rounded mt-4 text-center">
-                        Panel Administrativo
-                    </Link>
-                </div>
-            )}
-        </nav>
+        </header>
     );
 }

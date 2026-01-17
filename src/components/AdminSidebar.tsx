@@ -14,7 +14,8 @@ import {
     LogOut,
     BookOpen,
     List,
-    ExternalLink
+    ExternalLink,
+    UserCog // <--- 1. NUEVO ICONO IMPORTADO
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -26,7 +27,9 @@ interface User {
 export default function AdminSidebar({ user }: { user: User }) {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
-    const isAdmin = user.role === 'ADMIN';
+
+    // Aseguramos que role sea string para la comparación
+    const isAdmin = String(user.role) === 'ADMIN';
 
     const closeSidebar = () => setIsOpen(false);
 
@@ -41,7 +44,6 @@ export default function AdminSidebar({ user }: { user: User }) {
             {isOpen && <div onClick={closeSidebar} className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm" />}
 
             {/* SIDEBAR */}
-            {/* CORRECCIÓN VISUAL: Cambiamos 'md:static' por 'md:sticky md:top-0' */}
             <aside
                 className={`
           fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-white transform transition-transform duration-300 
@@ -84,7 +86,26 @@ export default function AdminSidebar({ user }: { user: User }) {
                     {isAdmin && (
                         <div>
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Sistema</p>
-                            <NavItem href="/panel/configuracion" icon={Settings} label="Configuración Global" active={pathname === '/panel/configuracion'} onClick={closeSidebar} />
+                            <div className="space-y-1">
+                                <NavItem
+                                    href="/panel/configuracion"
+                                    icon={Settings}
+                                    label="Configuración Global"
+                                    active={pathname === '/panel/configuracion'}
+                                    onClick={closeSidebar}
+                                />
+
+                                {/* --- 2. AQUÍ AGREGAMOS EL LINK FALTANTE --- */}
+                                <NavItem
+                                    href="/panel/configuracion/usuarios"
+                                    icon={UserCog}
+                                    label="Gestión de Usuarios"
+                                    active={pathname === '/panel/configuracion/usuarios'}
+                                    onClick={closeSidebar}
+                                />
+                                {/* ----------------------------------------- */}
+
+                            </div>
                         </div>
                     )}
                 </nav>
@@ -92,7 +113,6 @@ export default function AdminSidebar({ user }: { user: User }) {
                 {/* Footer Sidebar */}
                 <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0 space-y-3">
 
-                    {/* Botón Ver Sitio Web */}
                     <Link
                         href="/"
                         target="_blank"
@@ -101,7 +121,6 @@ export default function AdminSidebar({ user }: { user: User }) {
                         <ExternalLink size={18} /> Ver Sitio Web
                     </Link>
 
-                    {/* BOTÓN CERRAR SESIÓN (RESALTADO) */}
                     <button
                         onClick={() => signOut({ callbackUrl: '/' })}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-red-400 border border-red-900/50 hover:bg-red-950/30 hover:text-red-300 hover:border-red-500/50 transition-all group"

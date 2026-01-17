@@ -48,9 +48,12 @@ model Article {
 }
 
 model SiteConfig {
-  id               String @id @default("global")
-  homeNewsCount    Int    @default(10)
-  maxCollageImages Int    @default(6) // <--- NUEVO: Límite configurado por Admin
+  id              String   @id @default("global")
+  homeNewsCount   Int      @default(10)
+  maxCollageImages Int     @default(6)
+  
+  // --- NUEVO CAMPO ---
+  logoUrl         String?  // URL del logo subido
 }
 
 model Section {
