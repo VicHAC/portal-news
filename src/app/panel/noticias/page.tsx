@@ -1,139 +1,211 @@
 import prisma from '@/lib/prisma';
-import Image from 'next/image';
 import Link from 'next/link';
-import { deleteArticle, toggleFeatured } from '@/app/actions/news-actions'; // Importamos toggleFeatured
-import { Pencil, Trash2, Eye, Star } from 'lucide-react';
-import { auth } from '@/auth';
+import Image from 'next/image';
+import { deleteArticle, toggleFeatured } from '@/app/actions/news-actions';
+import { Eye, Pencil, Calendar, User, FileText, Plus, Star } from 'lucide-react';
+import DeleteButton from '@/components/DeleteButton';
+import AdminSearch from '@/components/AdminSearch';    // <--- IMPORTAR
+import Pagination from '@/components/Pagination';      // <--- IMPORTAR
 
-export const revalidate = 0; // Forzamos a que esta página no guarde caché y muestre cambios al instante
+export const revalidate = 0;
 
-export default async function GestionNoticiasPage() {
-    const session = await auth();
-    const isAdmin = session?.user?.role === 'ADMIN';
+export default async function NoticiasPanelPage(
+    props: {
+        searchParams?: Promise<{ q?: string; page?: string }>;
+    }
+) {
+    const searchParams = await props.searchParams;
+    const query = searchParams?.q || '';
+    const currentPage = Number(searchParams?.page) || 1;
+    const ITEMS_PER_PAGE = 10; // Noticias por página
 
-    // Obtenemos las noticias ordenadas por fecha (las nuevas primero)
+    // 1. FILTRO DE BÚSQUEDA
+    const where = query ? {
+        title: { contains: query, mode: 'insensitive' as const }, // Insensitive = ignora mayúsculas
+    } : {};
+
+    // 2. CONTEO TOTAL (Para el paginador)
+    const totalItems = await prisma.article.count({ where });
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+    // 3. CONSULTA DE NOTICIAS
     const articles = await prisma.article.findMany({
-        orderBy: { createdAt: 'desc' },
+        where,
+        // ORDENAMIENTO: Primero Destacadas, Luego Fecha
+        orderBy: [
+            { isFeatured: 'desc' },
+            { publishedAt: 'desc' }
+        ],
+        // PAGINACIÓN
+        skip: (currentPage - 1) * ITEMS_PER_PAGE,
+        take: ITEMS_PER_PAGE,
     });
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">Gestionar Noticias</h1>
-                <Link
-                    href="/panel/crear"
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-                >
-                    + Nueva Noticia
-                </Link>
+        <div className="max-w-6xl mx-auto">
+
+            {/* CABECERA CON BUSCADOR */}
+            <div className="flex flex-col gap-4 mb-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Noticias</h1>
+                        <p className="text-sm text-gray-500">Gestiona las publicaciones del portal</p>
+                    </div>
+                    <Link
+                        href="/panel/crear"
+                        className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 font-medium shadow-sm"
+                    >
+                        <Plus size={20} /> Nueva Noticia
+                    </Link>
+                </div>
+
+                {/* BARRA DE BÚSQUEDA */}
+                <div className="w-full sm:max-w-md">
+                    <AdminSearch placeholder="Buscar por título..." />
+                </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 border-b">
+            {/* --- VISTA ESCRITORIO (TABLA) --- */}
+            <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500 font-semibold">
                         <tr>
-                            <th className="p-4 font-medium text-gray-500">Imagen</th>
-                            <th className="p-4 font-medium text-gray-500">Título</th>
-                            <th className="p-4 font-medium text-gray-500">Sección</th>
-                            <th className="p-4 font-medium text-gray-500 text-right">Acciones</th>
+                            <th className="p-4 w-12 text-center"><Star size={16} /></th>
+                            <th className="p-4 w-16">Img</th>
+                            <th className="p-4">Título</th>
+                            <th className="p-4 w-32">Sección</th>
+                            <th className="p-4 w-40">Fecha</th>
+                            <th className="p-4 w-32">Estado</th>
+                            <th className="p-4 text-right w-32">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-gray-100">
                         {articles.map((article) => (
-                            <tr key={article.id} className={`hover:bg-gray-50 ${article.isFeatured ? 'bg-yellow-50/50' : ''}`}>
+                            <tr key={article.id} className={`hover:bg-gray-50 transition ${article.isFeatured ? 'bg-yellow-50/30' : ''}`}>
 
-                                {/* 1. Imagen */}
-                                <td className="p-4 w-24">
-                                    {article.mainImage ? (
-                                        <Image
-                                            src={article.mainImage}
-                                            alt="Miniatura"
-                                            width={60}
-                                            height={40}
-                                            className="rounded object-cover h-10 w-16 border"
-                                        />
-                                    ) : (
-                                        <div className="w-16 h-10 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-400 border">Sin img</div>
-                                    )}
+                                {/* Destacada */}
+                                <td className="p-4 text-center">
+                                    <form action={toggleFeatured.bind(null, article.id)}>
+                                        <button className={`p-1.5 rounded-full transition ${article.isFeatured ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-gray-100'}`}>
+                                            <Star size={18} fill={article.isFeatured ? "currentColor" : "none"} />
+                                        </button>
+                                    </form>
                                 </td>
 
-                                {/* 2. Título */}
-                                <td className="p-4 max-w-xs truncate font-medium text-gray-900">
-                                    {article.title}
-                                    {article.isFeatured && (
-                                        <span className="ml-2 text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded-full border border-yellow-300">
-                                            Destacada
-                                        </span>
-                                    )}
-                                </td>
-
-                                {/* 3. Sección */}
                                 <td className="p-4">
-                                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full uppercase font-bold">
+                                    <div className="relative w-10 h-10 rounded overflow-hidden bg-gray-100 border">
+                                        {article.mainImage ? (
+                                            <Image src={article.mainImage} alt="" fill className="object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-300"><FileText size={16} /></div>
+                                        )}
+                                    </div>
+                                </td>
+
+                                <td className="p-4">
+                                    <div className="font-medium text-gray-900 line-clamp-1" title={article.title}>
+                                        {article.title}
+                                    </div>
+                                    <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                        <User size={10} /> {article.author || 'Redacción'}
+                                    </div>
+                                </td>
+
+                                <td className="p-4">
+                                    <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded border border-gray-200 font-medium">
                                         {article.section}
                                     </span>
                                 </td>
 
-                                {/* 4. Botones de Acción */}
-                                <td className="p-4 text-right flex justify-end gap-2 items-center h-full">
+                                <td className="p-4 text-sm text-gray-500 font-mono">
+                                    {new Date(article.publishedAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                </td>
 
-                                    {/* Botón DESTACAR (Estrella) */}
-                                    <form action={toggleFeatured.bind(null, article.id)}>
-                                        <button
-                                            type="submit"
-                                            className={`p-2 rounded transition border ${article.isFeatured
-                                                ? 'text-yellow-500 bg-yellow-100 border-yellow-200 hover:bg-yellow-200'
-                                                : 'text-gray-400 border-transparent hover:text-yellow-500 hover:bg-gray-100'}`}
-                                            title={article.isFeatured ? "Quitar destacado" : "Destacar noticia"}
-                                        >
-                                            <Star size={18} fill={article.isFeatured ? "currentColor" : "none"} />
-                                        </button>
-                                    </form>
-
-                                    {/* Ver noticia real */}
-                                    <Link
-                                        href={`/noticia/${article.slug}`}
-                                        target="_blank"
-                                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded border border-transparent hover:border-blue-100"
-                                        title="Ver en la web"
-                                    >
-                                        <Eye size={18} />
-                                    </Link>
-
-                                    {/* Editar (Próximamente) */}
-                                    <button
-                                        disabled
-                                        className="p-2 text-gray-300 cursor-not-allowed"
-                                        title="Editar (Próximamente)"
-                                    >
-                                        <Pencil size={18} />
-                                    </button>
-
-                                    {/* Borrar (SOLO ADMIN) */}
-                                    {isAdmin && (
-                                        <form action={deleteArticle.bind(null, article.id)}>
-                                            <button
-                                                type="submit"
-                                                className="p-2 text-red-500 hover:bg-red-50 rounded transition border border-transparent hover:border-red-100"
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </form>
+                                <td className="p-4">
+                                    {article.published ? (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Publicada
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span> Borrador
+                                        </span>
                                     )}
+                                </td>
+
+                                <td className="p-4 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <Link href={`/noticia/${article.slug}`} target="_blank" className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Eye size={18} /></Link>
+                                        <button className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded opacity-50 cursor-not-allowed"><Pencil size={18} /></button>
+                                        <form action={deleteArticle.bind(null, article.id)}>
+                                            <DeleteButton className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" />
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-
-                {articles.length === 0 && (
-                    <div className="p-12 text-center text-gray-500">
-                        <p className="text-lg">No hay noticias creadas aún.</p>
-                        <p className="text-sm mt-2">¡Crea la primera ahora mismo!</p>
-                    </div>
-                )}
             </div>
+
+            {/* --- VISTA MÓVIL (TARJETAS) --- */}
+            <div className="md:hidden space-y-4">
+                {articles.map((article) => (
+                    <div key={article.id} className={`bg-white p-4 rounded-lg shadow-sm border flex flex-col gap-3 relative ${article.isFeatured ? 'border-yellow-200 ring-1 ring-yellow-100' : 'border-gray-200'}`}>
+
+                        <div className="absolute top-4 right-4 z-10">
+                            <form action={toggleFeatured.bind(null, article.id)}>
+                                <button className={`p-1.5 rounded-full shadow-sm border transition ${article.isFeatured ? 'text-yellow-500 bg-yellow-50 border-yellow-200' : 'text-gray-300 bg-white border-gray-100 hover:text-yellow-400'}`}>
+                                    <Star size={16} fill={article.isFeatured ? "currentColor" : "none"} />
+                                </button>
+                            </form>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <div className="relative w-16 h-16 rounded-md overflow-hidden bg-gray-100 border shrink-0">
+                                {article.mainImage ? (
+                                    <Image src={article.mainImage} alt="" fill className="object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-300"><FileText size={20} /></div>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0 pr-8">
+                                <div className="flex justify-between items-start mb-1">
+                                    <span className="inline-block bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border border-blue-100">{article.section}</span>
+                                    {article.published ? <span className="w-2 h-2 rounded-full bg-green-500 shadow-sm"></span> : <span className="w-2 h-2 rounded-full bg-gray-300"></span>}
+                                </div>
+                                <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2 mb-1">{article.title}</h3>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 border-t border-b border-gray-50 py-2">
+                            <div className="flex items-center gap-1"><User size={12} /><span className="truncate max-w-[100px]">{article.author || 'Redacción'}</span></div>
+                            <div className="flex items-center gap-1"><Calendar size={12} /><time>{new Date(article.publishedAt).toLocaleDateString('es-ES')}</time></div>
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-1">
+                            <Link href={`/noticia/${article.slug}`} target="_blank" className="flex-1 flex items-center justify-center gap-2 py-2 rounded-md bg-gray-50 text-gray-600 text-xs font-medium hover:bg-gray-100 border border-gray-200"><Eye size={14} /> Ver</Link>
+                            <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-md bg-orange-50 text-orange-700 text-xs font-medium hover:bg-orange-100 border border-orange-200 opacity-50 cursor-not-allowed"><Pencil size={14} /> Editar</button>
+                            <form action={deleteArticle.bind(null, article.id)} className="flex-1">
+                                <DeleteButton className="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 border border-red-200" iconSize={14} showText={true} />
+                            </form>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* MENSAJES DE ESTADO Y PAGINACIÓN */}
+            {articles.length === 0 ? (
+                <div className="p-12 text-center text-gray-500 bg-white rounded-lg border border-dashed mt-4">
+                    {query ? 'No se encontraron noticias con ese título.' : 'No hay noticias registradas.'}
+                </div>
+            ) : (
+                // COMPONENTE PAGINACIÓN
+                <div className="mt-8">
+                    <Pagination totalPages={totalPages} />
+                </div>
+            )}
+
         </div>
     );
 }

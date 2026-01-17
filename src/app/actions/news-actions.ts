@@ -3,38 +3,42 @@
 import { put } from '@vercel/blob';
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 
 // --- ACCIÓN PARA CREAR NOTICIA ---
 export async function createArticle(formData: FormData) {
+    // 1. VERIFICACIÓN
     const session = await auth();
-    if (!session?.user) throw new Error('No autorizado');
+    if (!session?.user) {
+        throw new Error('No autorizado');
+    }
 
-    // --- OBTENER CONFIGURACIÓN (Para el límite del collage) ---
+    // 2. CONFIGURACIÓN
     const config = await prisma.siteConfig.findUnique({ where: { id: 'global' } });
     const maxCollage = config?.maxCollageImages || 6;
 
-    // 1. Datos básicos
+    // 3. PROCESAR DATOS
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
     const section = formData.get('section') as string;
     const summaryRaw = formData.get('summary') as string;
 
-    // 2. Selectores
+    // FECHA (Ajuste a mediodía para evitar errores de zona horaria)
+    const dateInput = formData.get('date') as string;
+    const publishedAt = dateInput ? new Date(`${dateInput}T12:00:00`) : new Date();
+
+    // AUTOR (Si es "Sin crédito", guardamos null)
     const authorSelect = formData.get('author') as string;
-    const finalAuthor = authorSelect || session.user.name;
+    const finalAuthor = authorSelect || null;
 
     const columnSelect = formData.get('columnName') as string;
-
-    // NUEVO: Autor de Imagen
     const imageAuthorSelect = formData.get('imageAuthor') as string;
 
-    // 3. Slug y Resumen
+    // SLUG
     const slug = title.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
     const summary = summaryRaw || (content.slice(0, 160) + '...');
 
-    // 4. IMAGEN PRINCIPAL
+    // IMÁGENES
     const mainImageFile = formData.get('image') as File;
     let mainImageUrl = null;
     if (mainImageFile && mainImageFile.size > 0) {
@@ -42,48 +46,37 @@ export async function createArticle(formData: FormData) {
         mainImageUrl = blob.url;
     }
 
-    // 5. COLLAGE DE FOTOS (Múltiples)
-    const collageFiles = formData.getAll('collage') as File[]; // .getAll obtiene todos los archivos del input multiple
+    const collageFiles = formData.getAll('collage') as File[];
     let collageUrls: string[] = [];
-
     if (collageFiles && collageFiles.length > 0) {
-        // Validar cantidad
-        if (collageFiles.length > maxCollage) {
-            throw new Error(`Has superado el límite de ${maxCollage} fotos para el collage.`);
-        }
-
-        // Subir todas en paralelo
-        // Filtramos archivos vacíos (size > 0)
         const validFiles = collageFiles.filter(f => f.size > 0);
-
-        const uploadPromises = validFiles.map((file, index) =>
-            put(`articles/${slug}-collage-${index}-${file.name}`, file, { access: 'public' })
-        );
-
+        if (validFiles.length > maxCollage) validFiles.length = maxCollage;
+        const uploadPromises = validFiles.map((file, index) => put(`articles/${slug}-collage-${index}-${file.name}`, file, { access: 'public' }));
         const results = await Promise.all(uploadPromises);
         collageUrls = results.map(r => r.url);
     }
 
-    // 6. Guardar en DB
+    // 4. GUARDAR EN DB
     await prisma.article.create({
         data: {
-            title,
-            slug,
-            content,
-            summary,
-            section,
+            title, slug, content, summary, section,
             mainImage: mainImageUrl,
-            imageAuthor: imageAuthorSelect || null, // <--- Guardamos autor imagen
-            collage: collageUrls,                   // <--- Guardamos array de fotos
+            imageAuthor: imageAuthorSelect || null,
+            collage: collageUrls,
             author: finalAuthor,
             columnName: columnSelect || null,
             published: true,
+            publishedAt: publishedAt,
         },
     });
 
+    // 5. REVALIDAR DATOS
     revalidatePath('/');
     revalidatePath('/panel');
-    redirect('/panel');
+    revalidatePath(`/seccion/${section}`);
+
+    // 6. RETORNAR ÉXITO (Sin redirect aquí)
+    return { success: true };
 }
 
 // --- ACCIÓN PARA BORRAR NOTICIA (SOLO ADMIN) ---

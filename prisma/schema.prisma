@@ -24,26 +24,27 @@ model User {
 
 model Article {
   id          String   @id @default(cuid())
-  slug        String   @unique
   title       String
-  summary     String?  @db.Text
-  content     String   @db.Text
-  
-  // IMÁGENES
+  slug        String   @unique
+  content     String
+  summary     String?
   mainImage   String?
-  imageAuthor String?  @default("Redacción") // <--- NUEVO: Autor de la foto principal
+  collage     String[]
   
-  collage     String[] // <--- NUEVO: Array de URLs para el collage
+  // --- NUEVO CAMPO ---
+  publishedAt DateTime @default(now()) // Fecha editorial (la que tú eliges)
   
-  author      String?  @default("Redacción")
-  columnName  String?
-  section     String
-  published   Boolean  @default(false)
-  isFeatured  Boolean  @default(false) 
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) // Fecha de sistema (automática)
   updatedAt   DateTime @updatedAt
   
-  @@index([section])
+  // ... resto de relaciones (author, section, etc.)
+  published   Boolean  @default(false)
+  isFeatured  Boolean  @default(false)
+  
+  section     String
+  author      String?
+  imageAuthor String?
+  columnName  String?
 }
 
 model SiteConfig {
@@ -56,6 +57,10 @@ model Section {
   id    String @id @default(cuid())
   name  String
   slug  String @unique
+  
+  // NUEVOS CAMPOS
+  color String @default("#2563eb") // Guardaremos el código HEX (ej: #FF0000)
+  order Int    @default(0)         // Número para ordenar (1, 2, 3...)
 }
 
 model Author {

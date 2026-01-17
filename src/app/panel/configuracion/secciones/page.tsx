@@ -1,44 +1,65 @@
 import prisma from '@/lib/prisma';
-import { createSection, deleteSection } from '@/app/actions/settings-actions';
-import { Trash2, Plus } from 'lucide-react';
+import { createSection } from '@/app/actions/settings-actions';
+import { Plus, Palette, ArrowUpDown } from 'lucide-react';
+import SectionRow from '@/components/SectionRow';
+import { auth } from '@/auth';
 
 export default async function SeccionesConfigPage() {
-    const sections = await prisma.section.findMany();
+    const session = await auth();
+    const isAdmin = session?.user?.role === 'ADMIN'; // Verificar rol
+
+    const sections = await prisma.section.findMany({
+        orderBy: { order: 'asc' }
+    });
 
     return (
-        <div className="max-w-4xl">
+        <div className="max-w-5xl">
             <h2 className="text-2xl font-bold mb-6">Gestionar Secciones</h2>
 
-            <div className="bg-white p-6 rounded-lg shadow mb-8 border">
-                <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus size={20} /> Nueva Sección</h3>
-                <form action={createSection} className="flex gap-4">
-                    <input name="name" placeholder="Ej: Economía" required className="flex-1 border p-2 rounded" />
-                    <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-medium">Agregar</button>
-                </form>
-            </div>
+            {/* SOLO ADMIN PUEDE CREAR */}
+            {isAdmin && (
+                <div className="bg-white p-6 rounded-lg shadow mb-8 border border-blue-100">
+                    <h3 className="font-semibold mb-4 flex items-center gap-2 text-gray-800">
+                        <Plus size={20} className="text-blue-600" /> Nueva Sección
+                    </h3>
+                    <form action={createSection} className="flex flex-col md:flex-row gap-4 items-end">
+                        <div className="flex-1 w-full">
+                            <label className="text-xs font-bold text-gray-500 mb-1 block">Nombre</label>
+                            <input name="name" placeholder="Ej: Internacional" required className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                        </div>
+                        <div className="w-full md:w-24">
+                            <label className="text-xs font-bold text-gray-500 mb-1 block flex items-center gap-1"><ArrowUpDown size={12} /> Orden</label>
+                            <input name="order" type="number" defaultValue="0" className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                        </div>
+                        <div className="w-full md:w-24">
+                            <label className="text-xs font-bold text-gray-500 mb-1 block flex items-center gap-1"><Palette size={12} /> Color</label>
+                            <div className="h-[42px] border rounded flex items-center justify-center bg-white px-2">
+                                <input name="color" type="color" defaultValue="#2563eb" className="w-8 h-8 cursor-pointer bg-transparent border-none p-0" />
+                            </div>
+                        </div>
+                        <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded hover:bg-blue-700 font-medium h-full w-full md:w-auto shadow-sm">Agregar</button>
+                    </form>
+                </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            {/* Tabla Editable */}
+            <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
                 <table className="w-full text-left">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-gray-50 border-b text-xs uppercase text-gray-500 font-semibold">
                         <tr>
-                            <th className="p-4">Nombre</th>
-                            <th className="p-4">Slug (URL)</th>
-                            <th className="p-4 text-right">Acción</th>
+                            <th className="p-4 w-24">Orden</th>
+                            <th className="p-4 w-32">Color</th>
+                            <th className="p-4">Nombre de Sección</th>
+                            <th className="p-4 text-right w-32">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100">
                         {sections.map((sec) => (
-                            <tr key={sec.id} className="border-b last:border-0 hover:bg-gray-50">
-                                <td className="p-4 font-medium">{sec.name}</td>
-                                <td className="p-4 text-gray-500 font-mono text-sm">/seccion/{sec.slug}</td>
-                                <td className="p-4 text-right">
-                                    <form action={deleteSection.bind(null, sec.id)}>
-                                        <button className="text-red-500 hover:bg-red-50 p-2 rounded transition">
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
+                            <SectionRow
+                                key={sec.id}
+                                section={sec}
+                                isAdmin={isAdmin} // <--- PASAMOS PERMISO
+                            />
                         ))}
                     </tbody>
                 </table>

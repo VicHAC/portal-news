@@ -9,10 +9,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Aumentamos el límite de subida para Server Actions
   experimental: {
     serverActions: {
-      bodySizeLimit: '5mb', // Permitir hasta 5 Megabytes por envío
+      // (Vercel tiene un límite estricto de 4.5MB, así que 4MB es lo seguro).
+      bodySizeLimit: '4mb',
     },
   },
 };
