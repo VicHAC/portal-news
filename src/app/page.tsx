@@ -11,14 +11,12 @@ export default async function HomePage() {
   const config = await prisma.siteConfig.findUnique({ where: { id: 'global' } });
   const takeCount = config?.homeNewsCount || 10;
 
-  // 2. BUSCAR NOTICIA DESTACADA (La corrección está aquí)
+  // 2. BUSCAR NOTICIA DESTACADA
   const featuredArticle = await prisma.article.findFirst({
     where: {
       published: true,
       isFeatured: true
     },
-    // IMPORTANTE: Ordenamos por fecha descendente. 
-    // Así, si tienes varias marcadas, siempre muestra la más nueva.
     orderBy: { publishedAt: 'desc' },
   });
 
@@ -26,14 +24,13 @@ export default async function HomePage() {
   const recentArticles = await prisma.article.findMany({
     where: {
       published: true,
-      // Excluimos la destacada para que no salga repetida abajo
       id: { not: featuredArticle?.id }
     },
     orderBy: { publishedAt: 'desc' },
     take: takeCount,
   });
 
-  // --- LÓGICA DE FOTOS DE AUTORES Y COLORES (OPTIMIZADA) ---
+  // --- LÓGICA DE FOTOS DE AUTORES Y COLORES ---
   const authorNames = new Set<string>();
   if (featuredArticle?.author) authorNames.add(featuredArticle.author);
   recentArticles.forEach(a => { if (a.author) authorNames.add(a.author); });
@@ -61,7 +58,9 @@ export default async function HomePage() {
   // --- RENDERIZADO ---
   return (
     <main className="min-h-screen bg-gray-50 pb-12">
-      <div className="container mx-auto px-4 py-8">
+
+      {/* CORRECCIÓN AQUÍ: Usamos max-w-6xl en lugar de container */}
+      <div className="max-w-6xl mx-auto px-4 py-8">
 
         {/* BLOQUE DESTACADA */}
         {featuredArticle && (
@@ -88,7 +87,7 @@ export default async function HomePage() {
                   {featuredArticle.title}
                 </h1>
 
-                {/* Autor en Destacada (Si existe) */}
+                {/* Autor en Destacada */}
                 {featuredArticle.author && (
                   <div className="flex items-center gap-3 text-white/90 text-sm font-medium mb-3">
                     {getAuthorImage(featuredArticle.author) && (

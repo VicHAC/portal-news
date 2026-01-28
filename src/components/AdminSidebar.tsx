@@ -88,10 +88,10 @@ export default function AdminSidebar({ user }: { user: User }) {
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-2">Sistema</p>
                             <div className="space-y-1">
                                 <NavItem
-                                    href="/panel/configuracion"
+                                    href="/panel/configuracion/general"
                                     icon={Settings}
                                     label="Configuración Global"
-                                    active={pathname === '/panel/configuracion'}
+                                    active={pathname === '/panel/configuracion/general'}
                                     onClick={closeSidebar}
                                 />
 

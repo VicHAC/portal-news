@@ -8,8 +8,11 @@ import NavbarVisibility from "@/components/NavbarVisibility";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Mi Portal de Noticias",
-  description: "Noticias al día",
+  title: "Horizonte Noticias",
+  description: "Noticias, política y opinión de la Ciudad de México. Un espacio para el análisis del entorno capitalino.",
+  icons: {
+    icon: '/icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

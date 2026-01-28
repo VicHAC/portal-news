@@ -19,9 +19,15 @@ interface NewsCardProps {
     article: Article;
     authorImage?: string | null;
     sectionColor?: string;
+    hideSectionBadge?: boolean; // <--- NUEVA PROPIEDAD
 }
 
-export default function NewsCard({ article, authorImage, sectionColor = '#2563eb' }: NewsCardProps) {
+export default function NewsCard({
+    article,
+    authorImage,
+    sectionColor = '#2563eb',
+    hideSectionBadge = false // <--- Valor por defecto: false (se muestra siempre)
+}: NewsCardProps) {
 
     const formattedDate = new Date(article.publishedAt).toLocaleDateString('es-ES', {
         year: 'numeric',
@@ -42,11 +48,16 @@ export default function NewsCard({ article, authorImage, sectionColor = '#2563eb
             {hasImage && (
                 <div className="relative h-52 w-full bg-gray-200 overflow-hidden shrink-0">
                     <Image src={article.mainImage!} alt={article.title} fill className="object-cover group-hover:scale-105 transition duration-700" />
-                    <div className="absolute top-4 left-4">
-                        <span className="inline-block text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-sm" style={{ backgroundColor: sectionColor }}>
-                            {article.section}
-                        </span>
-                    </div>
+
+                    {/* --- AQUÍ ESTÁ EL CAMBIO --- */}
+                    {/* Solo mostramos la etiqueta si NO se pidió ocultarla */}
+                    {!hideSectionBadge && (
+                        <div className="absolute top-4 left-4">
+                            <span className="inline-block text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-sm" style={{ backgroundColor: sectionColor }}>
+                                {article.section}
+                            </span>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -58,9 +69,14 @@ export default function NewsCard({ article, authorImage, sectionColor = '#2563eb
                     <div className="absolute top-0 left-0 w-full px-6 pt-6">
                         <div className="flex items-center gap-4">
                             <div className="h-px bg-gray-300 flex-1"></div>
-                            <span className="text-xs font-black uppercase tracking-[0.2em] px-3 py-1 bg-gray-50 rounded" style={{ color: sectionColor }}>
-                                {article.section}
-                            </span>
+
+                            {/* --- AQUÍ TAMBIÉN: Ocultamos el texto si es necesario --- */}
+                            {!hideSectionBadge && (
+                                <span className="text-xs font-black uppercase tracking-[0.2em] px-3 py-1 bg-gray-50 rounded" style={{ color: sectionColor }}>
+                                    {article.section}
+                                </span>
+                            )}
+
                             <div className="h-px bg-gray-300 flex-1"></div>
                         </div>
                         <div className="w-full border-t border-gray-100 mt-1"></div>

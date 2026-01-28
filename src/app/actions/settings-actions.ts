@@ -10,37 +10,63 @@ import { hash } from 'bcryptjs';
 // 1. CONFIGURACIÓN GLOBAL
 // ==========================================
 export async function updateSiteConfig(formData: FormData) {
+    console.log("📢 Iniciando subida de configuración..."); // LOG 1
+
     const session = await auth();
-    if (session?.user?.role !== 'ADMIN') throw new Error('No autorizado');
-
-    const homeNewsCount = parseInt(formData.get('homeNewsCount') as string) || 10;
-    const maxCollageImages = parseInt(formData.get('maxCollageImages') as string) || 6;
-
-    const logoFile = formData.get('logo') as File;
-    let newLogoUrl = undefined;
-
-    if (logoFile && logoFile.size > 0) {
-        const blob = await put(`site-logo-${Date.now()}-${logoFile.name}`, logoFile, { access: 'public' });
-        newLogoUrl = blob.url;
+    if (session?.user?.role !== 'ADMIN') {
+        console.error("❌ Error: Usuario no autorizado");
+        throw new Error('No autorizado');
     }
 
-    await prisma.siteConfig.upsert({
-        where: { id: 'global' },
-        update: {
-            homeNewsCount,
-            maxCollageImages,
-            ...(newLogoUrl && { logoUrl: newLogoUrl }),
-        },
-        create: {
-            id: 'global',
-            homeNewsCount,
-            maxCollageImages,
-            logoUrl: newLogoUrl || null,
-        },
-    });
+    try {
+        const homeNewsCount = parseInt(formData.get('homeNewsCount') as string) || 10;
+        const maxCollageImages = parseInt(formData.get('maxCollageImages') as string) || 6;
+        const logoFile = formData.get('logo') as File;
 
-    revalidatePath('/', 'layout');
-    revalidatePath('/panel/configuracion');
+        let newLogoUrl = undefined;
+
+        // Verificar si llega el archivo
+        if (logoFile && logoFile.size > 0) {
+            console.log(`📂 Archivo detectado: ${logoFile.name} (${logoFile.size} bytes)`); // LOG 2
+            console.log("☁️ Intentando subir a Vercel Blob..."); // LOG 3
+
+            // Aquí es donde suele fallar si falta el token
+            const blob = await put(`site-logo-${Date.now()}-${logoFile.name}`, logoFile, {
+                access: 'public'
+            });
+
+            newLogoUrl = blob.url;
+            console.log("✅ Archivo subido exitosamente:", newLogoUrl); // LOG 4
+        } else {
+            console.log("ℹ️ No se seleccionó un nuevo logo.");
+        }
+
+        console.log("💾 Guardando en base de datos...");
+        await prisma.siteConfig.upsert({
+            where: { id: 'global' },
+            update: {
+                homeNewsCount,
+                maxCollageImages,
+                ...(newLogoUrl && { logoUrl: newLogoUrl }),
+            },
+            create: {
+                id: 'global',
+                homeNewsCount,
+                maxCollageImages,
+                logoUrl: newLogoUrl || null,
+            },
+        });
+
+        console.log("🔄 Revalidando caché...");
+        revalidatePath('/', 'layout');
+        revalidatePath('/panel/configuracion');
+        console.log("🎉 ¡Proceso terminado!");
+
+    } catch (error) {
+        // ESTE ES EL ERROR IMPORTANTE
+        console.error("🔥 ERROR GRAVE EN updateSiteConfig:", error);
+        throw error;
+    }
 }
 
 // ==========================================
